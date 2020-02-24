@@ -252,8 +252,8 @@ def combine(u1: unit, u2: unit, flag: int):
 # return defined unit from constructed unit
     # NOTE: This funcion ensures that identical units all reside at the same memory address, thus avoiding problems with unit redefinitions
 def search (dim: str, bas: Decimal):
-    if (type(bas) != object):
-            bas = Decimal(bas)
+    bas = Decimal(bas)
+    dim = fulldimreduce(unit(dim, bas))
     matchingunit = null
     for u in unitindex:
         if(u.basis == bas and u.dimension == dim):

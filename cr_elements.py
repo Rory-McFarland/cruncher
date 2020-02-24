@@ -77,14 +77,46 @@ class el:
             self.ty = eltype.OTHER
             # Expand here
 
+class con:
+    def __init__(self, value: str = '0', unit: object = units.null, ty: int = eltype.DECIMAL,
+                 prefix: int = units.prefix[''], error: str = '0'):
 
+        # For decimals (currently only type supported)
+        if (ty == eltype.DECIMAL):
+
+            # soft typing
+            self.value: Decimal
+            self.magnitude: int
+            self.unit: units.unit
+            self.prefix: int
+            self.sigfigs: str
+            self.error: Decimal
+            self.ty: int
+
+            # Assign values
+            self.value = Decimal(value)
+            # order of magnitude of the value
+            self.magnitude = self.value.adjusted() + prefix
+            # Keep in scientific notation
+            self.value = self.value * Decimal(10) ** (-self.magnitude)
+            self.unit = unit
+            # Determine sig figs if not specified
+            self.sigfigs = 'C'
+            # Assign other values
+            self.error = Decimal(error)
+            self.ty = eltype.DECIMAL
+
+        if (ty == eltype.OTHER):
+            self.value = value
+            self.unit = unit
+            self.ty = eltype.OTHER
 # =========
 # CONSTANTS
 # =========
 # Mathematical
-pi = el('3.14159265', units.null, eltype.DECIMAL)
-goldenratio = el('1.61803399', units.null, eltype.DECIMAL)
-e = el('2.71828183', units.null, eltype.DECIMAL)
+pi = con('3.14159265', units.null, eltype.DECIMAL)
+goldenratio = con('1.61803399', units.null, eltype.DECIMAL)
+e = con('2.71828183', units.null, eltype.DECIMAL)
 # Physical
 
 # Internal
@@ -100,11 +132,10 @@ pgmerror = el('ERROR', units.null, eltype.OTHER)
 class opflag(enum.IntEnum):
     SUM = 1
     PRODUCT = 2
-    ROOT = 3
-    POWER = 4
-    EXP = 5
-    LOG = 6
-    TRIG = 7
+    POWER = 3
+    EXP = 4
+    LOG = 5
+    TRIG = 6
 
 
 def sigfigshift(s: tuple):
@@ -119,11 +150,17 @@ def sigfigreduce(e1, e2, flag):
     e2: el
     flag: int
 
+    #constant exception
+    if(e1.sigfigs == 'C'):
+        return sigfigshift(e2.sigfigs)
+    if (e2.sigfigs == 'C'):
+        return sigfigshift(e1.sigfigs)
+
     # Shift sigfigs to (1, f) form
     e1.sigfigs = sigfigshift(e1.sigfigs)
     e2.sigfigs = sigfigshift(e2.sigfigs)
 
-    if (flag == opflag.SUM or flag == opflag.PRODUCT):
+    if (flag == opflag.SUM or flag == opflag.PRODUCT or flag == opflag.POWER):
         # Return lowest fractional significance
         f3 = min([e1.sigfigs[1], e2.sigfigs[1]])
         return (1, f3)
@@ -216,30 +253,71 @@ def multiply(e1, e2, flag = 1):
     return e3
 
 def power(e1, n):
-    #Returns Y in the case of Y = x^n. n must be an exact value (i.e. error of n = 0)
+    #Returns Y in the case of Y = x^n. n must be an exact value (i.e. error of n = 0). n must be dimensionless
 
     #soft typing
     e1: el
-    #n can be of type string or object
 
     #extract n
-    if(type(n) == int or type(n) == float or type(n) == str):
-        n = Decimal(n)
     if(type(n) == el):
-        if(n.unit.dimension == '_'):
+        if(units.fulldimreduce(n.unit.dimension) == '_'):
             n = n.value
         else:
             n = pgmerror
     #define power element
     e3 = el()
     #perform operation
-    e3.value = e1.value**n
+    e3.value = e1.value**n.value
     #Determine significant figures
+    e3.sigfigs=sigfigreduce(e1,e1,1)
     # propogate error
     if(n == -1): #special case
         e3.error = Decimal((e1.error/e1.value)*e3.value)
     else:
         e3.error = Decimal(abs(n) * e1.value**(n-1) * e1.error)
+
+def exponent(e1, b = e):
+    # Returns Y in the case of Y = b^x. b must be an exact number. x must be dimensionless.
+    #soft typing
+    e1: el
+    #b: con or el
+    #define exponent element
+    e3 = el()
+
+    # determine if x is dimensionless, if so perform operation
+    if(e1.unit.dimension == '_'):
+        e3.value = b.value**e1.value
+    else:
+        e3 = pgmerror
+    # determine sigfigs
+    if (e1.sigfigs(2) == 0):  # Special case
+        e3.sigfigs = (1, 0)
+    else:
+        e3.sigfigs = (1, e1.sigfigs(1) - 1)
+    return e3
+
+def parseinput(inp:str):
+    # remove spaces
+    inp = inp.replace(' ', '')
+    # remove commas (for incorectly formated numberes)
+    inp = inp.replace(' ','')
+    # get value string
+    val = []
+    for c in inp:
+        if c.isnumeric() or c == '.':
+            val.append(c)
+    val = str(val)
+    # reslice string
+    inp = inp[len(val)-1:]
+    # correct order of magnitude
+    if inp[0].upper() == 'E' and (inp[1] == '+' or inp[1] == '-' or inp[1].isnumeric()):
+        inp = inp[1:]
+        exp = []
+        for c in inp:
+            if c.isnumeric() or c == '+' or c == '-':
+                exp.append(c)
+        val = val + 'E' + exp
+
 
 # Copyright notice
 """

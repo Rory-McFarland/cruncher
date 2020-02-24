@@ -115,9 +115,27 @@ def add(s1, s2, flag = 1):
             indata.append(elm.add(s1.data[i], s2.data[i], flag))
         # generate product set
         s3 = set(indata, s1.unit)
-        return s3
 
-def multiply(s1, s2, flag):
+        # Special case: s1 is single element (set of one)
+    elif (len(s1.data) == 1):
+        # perform operation
+        indata = []
+        for i in range(len(s1.data)):
+            indata.append(elm.add(s1.data[0], s2.data[i], flag))
+        # generate product set
+        s3 = set(indata, s1.unit)
+
+        # # Special case: s2 is single element (set of one)
+    elif (len(s2.data) == 1):
+        # perform operation
+        indata = []
+        for i in range(len(s1.data)):
+            indata.append(elm.add(s1.data[i], s2.data[0], flag))
+        # generate product set
+        s3 = set(indata, s1.unit)
+    return s3
+
+def multiply(s1, s2, flag=1):
     # soft typing
     s1: set
     s2: set
@@ -131,7 +149,25 @@ def multiply(s1, s2, flag):
             indata.append(elm.multiply(s1.data[i], s2.data[i], flag))
         # generate product set
         s3 = set(indata, units.combine(s1.unit, s2.unit, flag))
-        return s3
+
+    # Special case: s1 is single element (set of one)
+    if (len(s1.data) == 1):
+        #perform operation
+        indata = []
+        for i in range(len(s1.data)):
+            indata.append(elm.multiply(s1.data[0], s2.data[i], flag))
+        # generate product set
+        s3 = set(indata, units.combine(s1.unit, s2.unit, flag))
+
+    # Special case: s2 is single element (set of one)
+    if (len(s2.data) == 1):
+        #perform operation
+        indata = []
+        for i in range(len(s1.data)):
+            indata.append(elm.multiply(s1.data[i], s2.data[0], flag))
+        # generate product set
+        s3 = set(indata, units.combine(s1.unit, s2.unit, flag))
+    return s3
 
 def readout(s):
     #soft typing
@@ -143,7 +179,7 @@ def readout(s):
     print('This set has a significance of ' + str(s.sigfigs[0] + s.sigfigs[1]))
     print('The data is as follows:')
     for i in range(s.length):
-        print(str(s.data[i].value))
+        print(str(s.data[i].value) + '±' + s.data[i].error + s.data[i].unit.__name__)
 # Copyright notice
 """
 Copyright 2019 Rory McFarland
